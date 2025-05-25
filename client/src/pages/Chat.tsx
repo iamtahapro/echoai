@@ -20,10 +20,137 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
+// Component for the thinking toggle button
+const ThinkingButton = ({ thinking, messageId, expandedThinking, setExpandedThinking }: { 
+  thinking: string; 
+  messageId: string; 
+  expandedThinking: string | null; 
+  setExpandedThinking: (id: string | null) => void; 
+}) => {
+  const isExpanded = expandedThinking === messageId;
+  
+  return (
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="mb-3"
+    >
+      <Button
+        onClick={() => setExpandedThinking(isExpanded ? null : messageId)}
+        variant="ghost"
+        size="sm"
+        className="text-orange-300 hover:text-orange-100 hover:bg-orange-500/20 border border-orange-500/30 transition-all duration-200"
+      >
+        <motion.div
+          animate={{ rotate: isExpanded ? 180 : 0 }}
+          transition={{ duration: 0.2 }}
+        >
+          <ArrowRight className="h-3 w-3 mr-1" />
+        </motion.div>
+        <span className="text-xs">
+          {isExpanded ? 'Hide' : 'View'} AI Thinking
+        </span>
+      </Button>
+      
+      <AnimatePresence>
+        {isExpanded && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.3 }}
+            className="mt-2 bg-orange-500/10 border border-orange-500/30 rounded-lg p-3 overflow-hidden"
+          >
+            <div className="text-xs text-orange-200 font-mono leading-relaxed whitespace-pre-wrap">
+              {thinking}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+};
+
+// Component for code blocks with copy functionality
+const CodeBlock = ({ code, language = 'javascript' }: { code: string; language?: string }) => {
+  const [copied, setCopied] = useState(false);
+  
+  const copyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
+  return (
+    <div className="relative group bg-black border border-orange-500/30 rounded-lg overflow-hidden my-3">
+      <div className="flex items-center justify-between bg-orange-500/10 px-4 py-2 border-b border-orange-500/30">
+        <span className="text-orange-300 text-xs font-mono">{language}</span>
+        <Button
+          onClick={copyToClipboard}
+          variant="ghost"
+          size="sm"
+          className="h-6 w-6 p-0 text-orange-300 hover:text-orange-100 hover:bg-orange-500/20"
+        >
+          {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+        </Button>
+      </div>
+      <div className="p-4 bg-black">
+        <pre className="text-orange-400 text-sm font-mono overflow-x-auto">
+          <code>{code}</code>
+        </pre>
+      </div>
+    </div>
+  );
+};
+
+// Function to render message content with code blocks
+const renderMessageContent = (content: string) => {
+  const codeBlockRegex = /```(\w+)?\n([\s\S]*?)```/g;
+  const parts = [];
+  let lastIndex = 0;
+  let match;
+
+  while ((match = codeBlockRegex.exec(content)) !== null) {
+    // Add text before code block
+    if (match.index > lastIndex) {
+      parts.push(
+        <span key={lastIndex} className="whitespace-pre-wrap">
+          {content.slice(lastIndex, match.index)}
+        </span>
+      );
+    }
+    
+    // Add code block
+    const language = match[1] || 'code';
+    const code = match[2];
+    parts.push(
+      <CodeBlock key={match.index} code={code} language={language} />
+    );
+    
+    lastIndex = match.index + match[0].length;
+  }
+  
+  // Add remaining text
+  if (lastIndex < content.length) {
+    parts.push(
+      <span key={lastIndex} className="whitespace-pre-wrap">
+        {content.slice(lastIndex)}
+      </span>
+    );
+  }
+  
+  return parts.length > 0 ? parts : <span className="whitespace-pre-wrap">{content}</span>;
+};
+
 interface Message {
   id: string;
   type: 'user' | 'ai' | 'system';
   content: string;
+  thinking?: string;
   timestamp: Date;
 }
 
@@ -34,6 +161,7 @@ export default function Chat() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [expandedThinking, setExpandedThinking] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -55,11 +183,12 @@ export default function Chat() {
     setMessages(prev => [...prev, message]);
   };
 
-  const addMessage = (type: 'user' | 'ai', content: string) => {
+  const addMessage = (type: 'user' | 'ai', content: string, thinking?: string) => {
     const message: Message = {
       id: Date.now().toString(),
       type,
       content,
+      thinking,
       timestamp: new Date()
     };
     setMessages(prev => [...prev, message]);
@@ -93,7 +222,20 @@ export default function Chat() {
       }
 
       const data = await response.json();
-      addMessage('ai', data.response);
+      
+      // Extract thinking from response if it exists
+      let thinking = '';
+      let cleanResponse = data.response;
+      
+      if (data.response.includes('<think>')) {
+        const thinkMatch = data.response.match(/<think>(.*?)<\/think>/s);
+        if (thinkMatch) {
+          thinking = thinkMatch[1].trim();
+          cleanResponse = data.response.replace(/<think>.*?<\/think>/s, '').trim();
+        }
+      }
+      
+      addMessage('ai', cleanResponse, thinking || undefined);
     } catch (error) {
       console.error('Error sending message:', error);
       addMessage('ai', "I apologize, but I encountered an error processing your request. Please try again.");
@@ -290,16 +432,25 @@ export default function Chat() {
                         
                         {/* Message Content */}
                         <div className="flex-1 min-w-0">
+                          {/* Thinking Toggle - only for AI messages with thinking */}
+                          {message.type === 'ai' && message.thinking && (
+                            <ThinkingButton 
+                              thinking={message.thinking} 
+                              messageId={message.id} 
+                              expandedThinking={expandedThinking}
+                              setExpandedThinking={setExpandedThinking}
+                            />
+                          )}
+                          
                           <div className={`${
                             message.type === 'user' ? 'text-right' : 'text-left'
                           }`}>
                             <span className="text-sm font-semibold text-white mb-2 block">
                               {message.type === 'user' ? 'You' : 'Echo AI'}
                             </span>
-                            <div 
-                              className="prose max-w-none text-white bg-black/80 backdrop-blur-sm rounded-xl p-4 border border-black"
-                              dangerouslySetInnerHTML={{ __html: formatMessage(message.content) }}
-                            />
+                            <div className="prose max-w-none text-white bg-black/80 backdrop-blur-sm rounded-xl p-4 border border-black">
+                              {renderMessageContent(message.content)}
+                            </div>
                             
                             {/* Action Buttons */}
                             {message.type === 'ai' && (
