@@ -107,6 +107,60 @@ const CodeBlock = ({ code, language = 'javascript' }: { code: string; language?:
   );
 };
 
+// AI Thinking Animation Component
+const AIThinkingAnimation = () => {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      className="flex items-start space-x-4"
+    >
+      {/* AI Avatar */}
+      <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg bg-gradient-to-r from-black to-orange-900">
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+        >
+          <Sparkles className="h-5 w-5 text-white" />
+        </motion.div>
+      </div>
+      
+      {/* Thinking Message */}
+      <div className="flex-1 min-w-0">
+        <span className="text-sm font-semibold text-white mb-2 block">Echo AI</span>
+        <div className="bg-black/80 backdrop-blur-sm rounded-xl p-4 border border-black">
+          <div className="flex items-center space-x-2">
+            <motion.div
+              animate={{ scale: [1, 1.2, 1] }}
+              transition={{ duration: 1, repeat: Infinity }}
+              className="w-2 h-2 bg-orange-400 rounded-full"
+            />
+            <motion.div
+              animate={{ scale: [1, 1.2, 1] }}
+              transition={{ duration: 1, repeat: Infinity, delay: 0.2 }}
+              className="w-2 h-2 bg-orange-400 rounded-full"
+            />
+            <motion.div
+              animate={{ scale: [1, 1.2, 1] }}
+              transition={{ duration: 1, repeat: Infinity, delay: 0.4 }}
+              className="w-2 h-2 bg-orange-400 rounded-full"
+            />
+            <span className="text-orange-300 text-sm ml-2">
+              <motion.span
+                animate={{ opacity: [0.5, 1, 0.5] }}
+                transition={{ duration: 1.5, repeat: Infinity }}
+              >
+                AI is thinking...
+              </motion.span>
+            </span>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
 // Function to render message content with code blocks
 const renderMessageContent = (content: string) => {
   const codeBlockRegex = /```(\w+)?\n([\s\S]*?)```/g;
@@ -162,12 +216,40 @@ export default function Chat() {
   const [isLoading, setIsLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [expandedThinking, setExpandedThinking] = useState<string | null>(null);
+  const [chatHistory, setChatHistory] = useState<Message[][]>([]);
+  const [currentChatIndex, setCurrentChatIndex] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Load chat history from localStorage on component mount
+  useEffect(() => {
+    const savedHistory = localStorage.getItem('echo-ai-chat-history');
+    if (savedHistory) {
+      try {
+        const parsedHistory = JSON.parse(savedHistory);
+        setChatHistory(parsedHistory);
+        if (parsedHistory.length > 0) {
+          setMessages(parsedHistory[0] || []);
+        }
+      } catch (error) {
+        console.error('Error loading chat history:', error);
+      }
+    }
+  }, []);
+
+  // Save chat history to localStorage whenever messages change
+  useEffect(() => {
+    if (messages.length > 0) {
+      const updatedHistory = [...chatHistory];
+      updatedHistory[currentChatIndex] = messages;
+      setChatHistory(updatedHistory);
+      localStorage.setItem('echo-ai-chat-history', JSON.stringify(updatedHistory));
+    }
+  }, [messages, currentChatIndex]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -193,6 +275,25 @@ export default function Chat() {
     };
     setMessages(prev => [...prev, message]);
     return message.id;
+  };
+
+  const startNewChat = () => {
+    if (messages.length > 0) {
+      const updatedHistory = [...chatHistory];
+      updatedHistory[currentChatIndex] = messages;
+      setChatHistory(updatedHistory);
+      updatedHistory.push([]);
+      setCurrentChatIndex(updatedHistory.length - 1);
+      localStorage.setItem('echo-ai-chat-history', JSON.stringify(updatedHistory));
+    }
+    setMessages([]);
+  };
+
+  const loadChat = (index: number) => {
+    if (index >= 0 && index < chatHistory.length) {
+      setCurrentChatIndex(index);
+      setMessages(chatHistory[index] || []);
+    }
   };
 
   const handleSendMessage = async () => {
@@ -486,30 +587,8 @@ export default function Chat() {
                   ))}
                 </AnimatePresence>
             
-                {/* Loading indicator */}
-                {isLoading && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="group"
-                  >
-                    <div className="flex items-start space-x-4">
-                      <div className="w-10 h-10 bg-gradient-to-r from-black to-orange-900 rounded-full flex items-center justify-center shadow-lg">
-                        <Sparkles className="h-5 w-5 text-white" />
-                      </div>
-                      <div className="flex-1">
-                        <span className="text-sm font-semibold text-white mb-2 block">Echo AI</span>
-                        <div className="bg-black/80 backdrop-blur-sm rounded-xl p-4 border border-black">
-                          <div className="flex space-x-1">
-                            <div className="w-2 h-2 bg-orange-400 rounded-full animate-bounce"></div>
-                            <div className="w-2 h-2 bg-orange-400 rounded-full animate-bounce [animation-delay:0.1s]"></div>
-                            <div className="w-2 h-2 bg-orange-400 rounded-full animate-bounce [animation-delay:0.2s]"></div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
+                {/* Enhanced Loading Animation */}
+                {isLoading && <AIThinkingAnimation />}
                 
                 <div ref={messagesEndRef} />
               </div>
