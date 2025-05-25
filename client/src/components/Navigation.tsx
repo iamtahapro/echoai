@@ -6,7 +6,7 @@ import { logout } from "@/lib/auth";
 import { Menu, X, Zap, LogOut, MessageSquare } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import AuthModal from "./AuthModal";
-import echoLogo from "/generated-icon.png";
+// Import removed - using direct path
 
 export default function Navigation() {
   const [isOpen, setIsOpen] = useState(false);
@@ -31,11 +31,9 @@ export default function Navigation() {
       <nav className="glass-nav fixed w-full top-0 z-50 px-4 py-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <img 
-              src={echoLogo} 
-              alt="Echo AI Logo" 
-              className="w-10 h-10 rounded-lg"
-            />
+            <div className="w-10 h-10 bg-echo-orange rounded-lg flex items-center justify-center">
+              <Zap className="text-white h-5 w-5" />
+            </div>
             <span className="text-xl font-bold text-white">Echo AI</span>
           </div>
         </div>
@@ -52,11 +50,9 @@ export default function Navigation() {
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <img 
-            src={echoLogo} 
-            alt="Echo AI Logo" 
-            className="w-10 h-10 rounded-lg"
-          />
+          <div className="w-10 h-10 bg-echo-orange rounded-lg flex items-center justify-center">
+            <Zap className="text-white h-5 w-5" />
+          </div>
           <span className="text-xl font-bold text-white">Echo AI</span>
         </motion.div>
 
