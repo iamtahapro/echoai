@@ -10,7 +10,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Home from "./pages/Home";
 import About from "./pages/About";
 import Chat from "./pages/Chat";
-import NotFound from "./pages/not-found";
+import NotFound from "@/pages/not-found";
 
 function Router() {
   useEffect(() => {

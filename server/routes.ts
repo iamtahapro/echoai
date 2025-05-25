@@ -15,26 +15,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Check daily limit if userId is provided
       if (userId) {
-        const canMakeRequest = await storage.canUserMakeRequest(userId);
-        if (!canMakeRequest) {
-          return res.status(429).json({ 
-            error: "You have reached your daily limit of 10 requests. Upgrade your plan for unlimited access!",
-            limitReached: true
+        const todayMessages = await storage.getTodayMessageCount(userId);
+        if (todayMessages >= 10) {
+          return res.json({ 
+            response: "You have hit the daily limit of 10 messages. Please try again tomorrow!" 
           });
         }
-        // Increment request count
-        await storage.incrementUserRequestCount(userId);
       }
 
-      // Get conversation history for context
-      let chatHistory = [];
-      if (userId) {
-        const fullHistory = await storage.getChatHistory(userId);
-        chatHistory = fullHistory.slice(-6); // Get last 6 messages for context
-      }
-
-      // Use server-side Groq API key with conversation context
-      const response = await processMessage(message, chatHistory);
+      // Use server-side Groq API key
+      const response = await processMessage(message);
       
       // Store chat history if userId is provided
       if (userId) {
@@ -114,62 +104,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   return httpServer;
 }
 
-// Process message with AI using Groq API with conversation context
-async function processMessage(message: string, chatHistory: any[] = []): Promise<string> {
+// Process message with AI using Groq API
+async function processMessage(message: string): Promise<string> {
   try {
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) {
       throw new Error('GROQ_API_KEY environment variable is not set');
     }
 
-    // Build conversation context
-    const conversationContext = chatHistory.length > 0 
-      ? chatHistory.map(msg => `${msg.type === 'user' ? 'User' : 'Assistant'}: ${msg.content}`).join('\n') 
-      : '';
-
-    // Detect if user is asking for code or explanation
-    const isCodeRequest = /\b(write|create|build|make|generate|code|function|component|script|program)\b/i.test(message) ||
-                         /\b(how to|show me|give me)\b.*\b(code|function|script|example)\b/i.test(message);
-    
-    const isExplanationRequest = /\b(explain|what does|how does|why|what is|describe|tell me about)\b/i.test(message);
-
-    let systemPrompt;
-    if (isCodeRequest && !isExplanationRequest) {
-      systemPrompt = `<think>
-The user is asking for code. I should provide clean, production-ready code without unnecessary explanations unless they specifically ask for explanations.
-</think>
-
-You are Echo AI, a professional coding assistant. When users ask for code:
-- Provide ONLY clean, production-ready code
-- No explanations unless specifically requested  
-- Use proper syntax and best practices
-- Be concise and direct
-
-When users ask for explanations:
-- Provide clear, detailed explanations
-- Include code examples when helpful
-- Break down complex concepts
-
-Remember previous conversation context for continuity.`;
-    } else {
-      systemPrompt = `<think>
-The user seems to be asking for an explanation or general conversation. I should provide helpful information and only include code if they specifically request it.
-</think>
-
-You are Echo AI, a helpful coding assistant. Provide clear, informative responses. Include code examples only when specifically requested or when they would be genuinely helpful for understanding. Remember our previous conversation for context.`;
-    }
-
-    // Build messages array with conversation context
-    const messages = [
-      { role: "system", content: systemPrompt }
-    ];
-
-    // Add conversation context if available
-    if (conversationContext) {
-      messages.push({ role: "system", content: `Previous conversation:\n${conversationContext}` });
-    }
-
-    messages.push({ role: "user", content: message });
+    const systemPrompt = "You are Echo AI, an intelligent coding assistant created by Taha. You are a senior developer that creates professional and modern websites for users. Always provide clear, copyable code examples and explain your solutions step by step. Format your code properly with syntax highlighting.";
     
     // Call Groq API with deepseek-r1-distill-llama-70b model
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -180,7 +123,10 @@ You are Echo AI, a helpful coding assistant. Provide clear, informative response
       },
       body: JSON.stringify({
         model: "deepseek-r1-distill-llama-70b",
-        messages: messages,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: message }
+        ],
         temperature: 0.7,
         max_tokens: 2048,
         stream: false

@@ -12,20 +12,16 @@ export interface IStorage {
   saveChatMessage(userId: string, type: 'user' | 'ai', content: string): Promise<void>;
   getChatHistory(userId: string): Promise<ChatMessage[]>;
   getTodayMessageCount(userId: string): Promise<number>;
-  incrementUserRequestCount(userId: string): Promise<number>;
-  canUserMakeRequest(userId: string): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
   private users: Map<number, User>;
   private chatHistory: Map<string, any[]>;
-  private dailyRequests: Map<string, { count: number; date: string }>;
   currentId: number;
 
   constructor() {
     this.users = new Map();
     this.chatHistory = new Map();
-    this.dailyRequests = new Map();
     this.currentId = 1;
   }
 
@@ -74,33 +70,6 @@ export class MemStorage implements IStorage {
     ).length;
     
     return todayCount;
-  }
-
-  async incrementUserRequestCount(userId: string): Promise<number> {
-    const today = new Date().toDateString();
-    const userRequests = this.dailyRequests.get(userId);
-    
-    if (!userRequests || userRequests.date !== today) {
-      // Reset count for new day
-      this.dailyRequests.set(userId, { count: 1, date: today });
-      return 1;
-    } else {
-      // Increment count for same day
-      userRequests.count += 1;
-      this.dailyRequests.set(userId, userRequests);
-      return userRequests.count;
-    }
-  }
-
-  async canUserMakeRequest(userId: string): Promise<boolean> {
-    const today = new Date().toDateString();
-    const userRequests = this.dailyRequests.get(userId);
-    
-    if (!userRequests || userRequests.date !== today) {
-      return true; // New day or first request
-    }
-    
-    return userRequests.count < 10; // Daily limit of 10 requests
   }
 }
 
