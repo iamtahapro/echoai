@@ -1,0 +1,88 @@
+Build a modern, animated, professional website for my AI coding assistant.
+
+✅ REQUIREMENTS:
+
+Homepage:
+
+Inspired by the image I will upload (use style as inspiration but DO NOT copy text).
+Highlight the abilities of my AI, but do NOT mention the model name (do NOT say deepseek-r1-distill-llama-70b)and using groq.
+Mention that it's a code generator and code explainer.
+Emphasize ease of use, beginner friendliness, and fast output.
+Make the homepage visually attractive with a dark theme, bold fonts, and animations.
+About Page:
+
+Add a separate About page (accessible from navbar).
+Describe that this AI helps users generate clean code, explains how it works, and supports multiple languages.
+focused on making coding easier for everyone and using all languages .
+Login Flow:
+
+Use Firebase Authentication with Google login.
+The user should be redirected to the homepage first.
+Only when the user logs in, they get access to the chat agent page.
+Agent Page (Chat Interface):
+
+Clone the ChatGPT interface look and feel.
+Add smooth animations (message load in, typing effect, transitions).
+User can type their coding task/question.
+The agent replies with code, inline comments, and explanations.
+Ask for API key securely.
+🎯 Goal:
+Make it extremely user-friendly, professional, and fun to use — like a real AI tool people would love. Smooth animations, responsive design, and a beginner-friendly flow are a must.
+
+here is the code of agent:
+from dotenv import load_dotenv
+import json
+import os
+from langchain.chat_models import ChatOpenAI
+from langchain.schema import AIMessage, HumanMessage, SystemMessage
+load_dotenv()
+
+File to store memory
+HISTORY_FILE = "chat_history.json"
+Chat_History = []
+
+Load from file if it exists
+if os.path.exists(HISTORY_FILE):
+with open(HISTORY_FILE, "r") as f:
+history_data = json.load(f)
+for msg in history_data:
+if msg["role"] == "system":
+Chat_History.append(SystemMessage(content=msg["content"]))
+elif msg["role"] == "user":
+Chat_History.append(HumanMessage(content=msg["content"]))
+elif msg["role"] == "assistant":
+Chat_History.append(AIMessage(content=msg["content"]))
+else:
+# Start fresh with system prompt
+system_prompt = SystemMessage(
+content="You are an intelligent assistant created by Taha. and you have to create professional and modern website for users and you are a senior developer that will also explain the code ."
+)
+Chat_History.append(system_prompt)
+
+Initialize model
+model = ChatOpenAI(
+model_name="deepseek-r1-distill-llama-70b",
+openai_api_base="https://api.groq.com/openai/v1",
+openai_api_key=os.getenv("GROQ_API_KEY")
+)
+
+Chat loop
+while True:
+query = input("You: ")
+if query.lower() == "exit":
+break
+
+Chat_History.append(HumanMessage(content=query))
+result = model.invoke(Chat_History)
+response = result.content
+Chat_History.append(AIMessage(content=response))
+print(f"AI: {response}")
+# Save chat history to file
+with open(HISTORY_FILE, "w") as f:
+    json.dump(
+        [{"role": msg.type, "content": msg.content} for msg in Chat_History],
+        f,
+        indent=2
+    )
+print("--- Message History ---")
+print(Chat_History)
