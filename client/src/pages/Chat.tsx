@@ -228,16 +228,34 @@ export default function Chat() {
   // Load chat history from localStorage on component mount
   useEffect(() => {
     const savedHistory = localStorage.getItem('echo-ai-chat-history');
+    const savedCurrentIndex = localStorage.getItem('echo-ai-current-chat-index');
+    
     if (savedHistory) {
       try {
         const parsedHistory = JSON.parse(savedHistory);
         setChatHistory(parsedHistory);
-        if (parsedHistory.length > 0) {
+        
+        if (savedCurrentIndex && parsedHistory.length > 0) {
+          const index = parseInt(savedCurrentIndex);
+          if (index >= 0 && index < parsedHistory.length) {
+            setCurrentChatIndex(index);
+            setMessages(parsedHistory[index] || []);
+          } else {
+            setMessages(parsedHistory[0] || []);
+          }
+        } else if (parsedHistory.length > 0) {
           setMessages(parsedHistory[0] || []);
         }
       } catch (error) {
         console.error('Error loading chat history:', error);
       }
+    } else {
+      // Initialize with empty chat if no history exists
+      const initialHistory = [[]];
+      setChatHistory(initialHistory);
+      setCurrentChatIndex(0);
+      localStorage.setItem('echo-ai-chat-history', JSON.stringify(initialHistory));
+      localStorage.setItem('echo-ai-current-chat-index', '0');
     }
   }, []);
 
@@ -248,8 +266,9 @@ export default function Chat() {
       updatedHistory[currentChatIndex] = messages;
       setChatHistory(updatedHistory);
       localStorage.setItem('echo-ai-chat-history', JSON.stringify(updatedHistory));
+      localStorage.setItem('echo-ai-current-chat-index', currentChatIndex.toString());
     }
-  }, [messages, currentChatIndex]);
+  }, [messages, currentChatIndex, chatHistory]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -278,21 +297,39 @@ export default function Chat() {
   };
 
   const startNewChat = () => {
+    // Save current chat if it has messages
+    const updatedHistory = [...chatHistory];
     if (messages.length > 0) {
-      const updatedHistory = [...chatHistory];
       updatedHistory[currentChatIndex] = messages;
-      setChatHistory(updatedHistory);
-      updatedHistory.push([]);
-      setCurrentChatIndex(updatedHistory.length - 1);
-      localStorage.setItem('echo-ai-chat-history', JSON.stringify(updatedHistory));
     }
+    
+    // Create new empty chat
+    updatedHistory.push([]);
+    const newIndex = updatedHistory.length - 1;
+    
+    setChatHistory(updatedHistory);
+    setCurrentChatIndex(newIndex);
     setMessages([]);
+    
+    // Save to localStorage
+    localStorage.setItem('echo-ai-chat-history', JSON.stringify(updatedHistory));
+    localStorage.setItem('echo-ai-current-chat-index', newIndex.toString());
   };
 
   const loadChat = (index: number) => {
     if (index >= 0 && index < chatHistory.length) {
+      // Save current chat before switching
+      const updatedHistory = [...chatHistory];
+      if (messages.length > 0) {
+        updatedHistory[currentChatIndex] = messages;
+        setChatHistory(updatedHistory);
+        localStorage.setItem('echo-ai-chat-history', JSON.stringify(updatedHistory));
+      }
+      
+      // Load selected chat
       setCurrentChatIndex(index);
       setMessages(chatHistory[index] || []);
+      localStorage.setItem('echo-ai-current-chat-index', index.toString());
     }
   };
 
@@ -409,7 +446,7 @@ export default function Chat() {
         <div className="p-4">
           <Button 
             className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-semibold shadow-lg shadow-orange-500/25 flex items-center justify-center gap-2"
-            onClick={() => setMessages([])}
+            onClick={startNewChat}
           >
             <Plus className="h-4 w-4" />
             New Chat
@@ -420,10 +457,36 @@ export default function Chat() {
         <div className="flex-1 overflow-y-auto px-4">
           <div className="text-xs text-white mb-3 px-2 font-medium">Recent Chats</div>
           <div className="space-y-2">
-            {messages.length > 0 && (
-              <div className="text-sm text-white p-3 rounded-lg bg-orange-500/20 border border-black cursor-pointer truncate hover:bg-orange-500/30 transition-colors">
-                Current Chat
+            {chatHistory.length === 0 ? (
+              <div className="text-center text-gray-400 mt-8">
+                <p className="text-sm">No chat history yet</p>
+                <p className="text-xs mt-1">Start a conversation!</p>
               </div>
+            ) : (
+              chatHistory.map((chat, index) => (
+                <motion.div
+                  key={index}
+                  whileHover={{ scale: 1.02 }}
+                  className={`p-3 rounded-lg cursor-pointer transition-all ${
+                    index === currentChatIndex
+                      ? 'bg-orange-500/30 border border-orange-500/50'
+                      : 'bg-black/50 hover:bg-orange-500/20 border border-transparent'
+                  }`}
+                  onClick={() => loadChat(index)}
+                >
+                  <div className="text-sm text-white font-medium mb-1">
+                    Chat {index + 1}
+                  </div>
+                  <div className="text-xs text-gray-400">
+                    {chat.length > 0 ? `${chat.length} messages` : 'Empty chat'}
+                  </div>
+                  {chat.length > 0 && (
+                    <div className="text-xs text-gray-500 mt-1 truncate">
+                      {chat[0]?.content.substring(0, 30)}...
+                    </div>
+                  )}
+                </motion.div>
+              ))
             )}
           </div>
         </div>
