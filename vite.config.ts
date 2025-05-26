@@ -3,11 +3,9 @@ import react from "@vitejs/plugin-react";
 import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
-const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  // and so on...
-};
+const groqApiKey = import.meta.env.GROQ_API_KEY;
+console.log("GROQ API Key:", groqApiKey);
+
 
 export default defineConfig({
   plugins: [
