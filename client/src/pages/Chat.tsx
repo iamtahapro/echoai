@@ -221,6 +221,24 @@ export default function Chat() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  return (
+    <div className="flex flex-col md:flex-row h-screen w-full p-4 gap-4 overflow-hidden bg-echo-dark">
+      {/* Sidebar Panel (top on mobile, left on desktop) */}
+      <div className="w-full md:w-1/3 h-1/2 md:h-full bg-gray-800 p-4 rounded-2xl shadow-lg overflow-y-auto">
+        {/* You can render chat history, user info, buttons etc here */}
+        Sidebar Content
+      </div>
+
+      {/* Chat Panel (bottom on mobile, right on desktop) */}
+      <div className="w-full md:w-2/3 h-1/2 md:h-full bg-gray-900 p-4 rounded-2xl shadow-lg overflow-y-auto">
+        {/* Render your chat messages here */}
+        Chat Output
+      </div>
+    </div>
+  );
+}
+
+
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
